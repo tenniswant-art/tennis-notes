@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2F5D8A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="경기 전 노트">
+<link rel="manifest" href="manifest.json">
+<title>경기 전 노트</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --court:#2F5D8A; --deep:#1F4266; --outer:#4E7F5B; --line:#F7F9F6; --ball:#D9E84A; --ink:#16263A; --mute:#6B7C8F; --red:#B3413A; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--outer); color:var(--ink);
+    font-family:'IBM Plex Sans KR', system-ui, sans-serif;
+    padding:calc(20px + env(safe-area-inset-top)) 12px 40px; -webkit-tap-highlight-color:transparent; }
+  .wrap { max-width:520px; margin:0 auto; }
+  button { font-family:inherit; cursor:pointer; }
+  button:focus-visible, textarea:focus-visible { outline:3px solid var(--ball); outline-offset:2px; }
+  .court { background:var(--court); border:3px solid var(--line); border-radius:6px; position:relative; overflow:hidden; }
+  .court::before { content:""; position:absolute; left:50%; top:0; bottom:0; width:2px; background:rgba(247,249,246,.18); }
+  header { padding:22px 20px 16px; color:var(--line); position:relative; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .ball { width:16px; height:16px; border-radius:50%; background:var(--ball); box-shadow:inset -3px -2px 0 rgba(0,0,0,.12); flex:none; }
+  h1 { margin:0; font-size:22px; font-weight:700; letter-spacing:-.01em; }
+  .sub { margin:6px 0 0 26px; font-size:13px; opacity:.8; }
+  .user { font-size:11px; color:var(--line); opacity:.85; text-align:right; }
+  .user button { margin-top:4px; background:transparent; border:1px solid rgba(247,249,246,.5); color:var(--line); border-radius:3px; padding:3px 8px; font-size:11px; }
+  nav { display:grid; grid-template-columns:repeat(4,1fr); border-top:2px solid var(--line); border-bottom:2px solid var(--line); position:relative; }
+  nav button { border:none; background:transparent; color:var(--line); padding:12px 4px 10px; font-size:15px; font-weight:500; }
+  nav button + button { border-left:2px solid var(--line); }
+  nav button[aria-selected="true"] { background:var(--line); color:var(--deep); font-weight:700; }
+  nav small { display:block; font-size:11px; opacity:.7; margin-top:2px; }
+  .input { padding:16px; position:relative; }
+  .input label { display:block; color:var(--line); font-size:13px; margin-bottom:8px; }
+  textarea { width:100%; border:none; border-radius:4px; padding:12px; font:inherit; font-size:15px; line-height:1.5; resize:vertical; background:var(--line); color:var(--ink); }
+  .add { margin-top:10px; width:100%; border:none; border-radius:4px; padding:12px; background:var(--ball); color:var(--deep); font-size:15px; font-weight:700; }
+  .add:disabled { background:rgba(217,232,74,.45); cursor:default; }
+  .err { color:var(--ball); font-size:13px; margin:8px 0 0; }
+  main { margin-top:18px; }
+  .empty { border:2px dashed rgba(247,249,246,.5); border-radius:6px; padding:28px 16px; text-align:center; color:var(--line); font-size:14px; line-height:1.6; }
+  .status { color:var(--line); text-align:center; font-size:14px; }
+  h2 { font-size:13px; font-weight:500; color:var(--line); margin:0 0 8px 2px; opacity:.9; }
+  h2.pin { color:var(--ball); font-size:14px; font-weight:700; opacity:1; }
+  section { margin-bottom:16px; }
+  article { background:var(--line); border-radius:4px; border-left:5px solid var(--court); padding:12px 12px 10px 14px; margin-bottom:8px; }
+  article.pinned { border-left-color:var(--ball); }
+  article p { margin:0; font-size:15px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+  .row { display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px; }
+  .time { font-size:12px; color:var(--mute); }
+  .acts { display:flex; gap:6px; }
+  .sm { border:1px solid #C9D3DC; background:transparent; color:var(--mute); border-radius:3px; padding:5px 10px; font-size:12px; }
+  .sm.danger { border-color:var(--red); background:var(--red); color:#fff; }
+  .login { padding:28px 20px 30px; text-align:center; color:var(--line); position:relative; border-top:2px solid var(--line); }
+  .login p { font-size:14px; margin:0 0 16px; opacity:.9; line-height:1.6; }
+  .hidden { display:none !important; }
+  @media (prefers-reduced-motion: no-preference) {
+    article.new { animation:in .25s ease-out; }
+    @keyframes in { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="court">
+    <header>
+      <div>
+        <div class="brand"><span class="ball"></span><h1>경기 전 노트</h1></div>
+        <p class="sub">코트 들어가기 전에 한 번 읽고 가세요</p>
+      </div>
+      <div class="user hidden" id="userBox"><div id="userName"></div><button id="logoutBtn">로그아웃</button></div>
+    </header>
+
+    <div class="login hidden" id="loginBox">
+      <p>로그인하면 폰·PC 어디서든<br>같은 노트를 볼 수 있어요</p>
+      <button class="add" id="loginBtn">Google로 로그인</button>
+      <p class="err hidden" id="loginErr"></p>
+    </div>
+
+    <div id="appBox" class="hidden">
+      <nav role="tablist" id="tabs"></nav>
+      <div class="input">
+        <label for="text" id="inputLabel"></label>
+        <textarea id="text" rows="3" placeholder="예: 임팩트 후 맞은 자리를 0.5초 보기"></textarea>
+        <button class="add" id="addBtn" disabled>노트 추가</button>
+        <p class="err hidden" id="err"></p>
+      </div>
+    </div>
+  </div>
+
+  <main id="list"><p class="status">불러오는 중…</p></main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ▼▼▼ Firebase 콘솔 > 프로젝트 설정 > 웹 앱 설정값으로 교체 ▼▼▼
+const firebaseConfig = {
+  apiKey: "AIzaSyCBqKlXLyc2qI1g-uscB4b1bW6NteicP-8",
+  authDomain: "tennis-9c2c5.firebaseapp.com",
+  projectId: "tennis-9c2c5",
+  storageBucket: "tennis-9c2c5.firebasestorage.app",
+  messagingSenderId: "432437408355",
+  appId: "1:432437408355:web:b63bcdd184713ce4983e56",
+  measurementId: "G-P608NH5LH0"
+};
+// ▲▲▲
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+
+const TABS = [
+  { id:"forehand", label:"포핸드" }, { id:"backhand", label:"백핸드" },
+  { id:"volley", label:"발리" }, { id:"serve", label:"서브" }
+];
+const DAYS = ["일","월","화","수","목","금","토"];
+const $ = (id) => document.getElementById(id);
+
+let uid = null, notes = [], tab = "forehand", confirmId = null, unsub = null, lastAdded = null;
+
+const toMs = (n) => n.ts?.toMillis ? n.ts.toMillis() : (n.ts || Date.now());
+const fmtDate = (ms) => { const d = new Date(ms);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} (${DAYS[d.getDay()]})`; };
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString("ko-KR", { hour:"2-digit", minute:"2-digit" });
+const esc = (s) => s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const label = () => TABS.find(t => t.id === tab).label;
+
+function showErr(msg) { const e = $("err"); e.textContent = msg; e.classList.toggle("hidden", !msg); }
+
+function renderTabs() {
+  $("tabs").innerHTML = TABS.map(t => {
+    const c = notes.filter(n => n.tab === t.id).length;
+    return `<button role="tab" data-tab="${t.id}" aria-selected="${t.id === tab}">${t.label}<small>${c}개</small></button>`;
+  }).join("");
+  $("inputLabel").textContent = `오늘의 ${label()} 생각`;
+}
+
+function noteHTML(n, pinnedView) {
+  const ms = toMs(n), confirming = confirmId === n.id;
+  const acts = confirming
+    ? `<button class="sm danger" data-act="del" data-id="${n.id}">삭제하기</button><button class="sm" data-act="cancel">취소</button>`
+    : `<button class="sm" data-act="pin" data-id="${n.id}">${n.pinned ? "고정 해제" : "고정"}</button><button class="sm" data-act="ask" data-id="${n.id}">삭제</button>`;
+  return `<article class="${n.pinned ? "pinned" : ""} ${n.id === lastAdded ? "new" : ""}">
+    <p>${esc(n.text)}</p>
+    <div class="row"><span class="time">${pinnedView ? fmtDate(ms) : fmtTime(ms)}</span><div class="acts">${acts}</div></div>
+  </article>`;
+}
+
+function renderList() {
+  const cur = notes.filter(n => n.tab === tab);
+  if (!cur.length) {
+    $("list").innerHTML = `<div class="empty">아직 ${label()} 노트가 없어요.<br>위에 첫 생각을 적어보세요.</div>`;
+    return;
+  }
+  const pinned = cur.filter(n => n.pinned).sort((a,b) => toMs(b) - toMs(a));
+  const hist = cur.filter(n => !n.pinned).sort((a,b) => toMs(b) - toMs(a));
+  const groups = {};
+  hist.forEach(n => { const k = fmtDate(toMs(n)); (groups[k] ||= []).push(n); });
+  let html = "";
+  if (pinned.length) html += `<section><h2 class="pin">꼭 기억할 것</h2>${pinned.map(n => noteHTML(n, true)).join("")}</section>`;
+  for (const [d, items] of Object.entries(groups)) html += `<section><h2>${d}</h2>${items.map(n => noteHTML(n)).join("")}</section>`;
+  $("list").innerHTML = html;
+}
+
+const render = () => { renderTabs(); renderList(); };
+const notesRef = () => collection(db, "users", uid, "notes");
+
+// Events
+$("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tab]"); if (!b) return;
+  tab = b.dataset.tab; confirmId = null; render();
+});
+$("text").addEventListener("input", () => { $("addBtn").disabled = !$("text").value.trim(); });
+$("addBtn").addEventListener("click", async () => {
+  const text = $("text").value.trim(); if (!text || !uid) return;
+  $("text").value = ""; $("addBtn").disabled = true;
+  try {
+    const ref = await addDoc(notesRef(), { tab, text, pinned:false, ts:serverTimestamp() });
+    lastAdded = ref.id; showErr("");
+  } catch (err) { $("text").value = text; $("addBtn").disabled = false; showErr("저장하지 못했어요. 다시 시도해 주세요."); }
+});
+$("list").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  try {
+    if (act === "ask") { confirmId = id; renderList(); }
+    else if (act === "cancel") { confirmId = null; renderList(); }
+    else if (act === "pin") { const n = notes.find(x => x.id === id); await updateDoc(doc(notesRef(), id), { pinned: !n.pinned }); }
+    else if (act === "del") { confirmId = null; await deleteDoc(doc(notesRef(), id)); }
+    showErr("");
+  } catch (err) { showErr("변경하지 못했어요. 다시 시도해 주세요."); }
+});
+
+$("loginBtn").addEventListener("click", async () => {
+  const provider = new GoogleAuthProvider();
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  try { standalone ? await signInWithRedirect(auth, provider) : await signInWithPopup(auth, provider); }
+  catch (err) { const e = $("loginErr"); e.textContent = "로그인에 실패했어요. 다시 시도해 주세요."; e.classList.remove("hidden"); }
+});
+$("logoutBtn").addEventListener("click", () => signOut(auth));
+
+onAuthStateChanged(auth, user => {
+  if (unsub) { unsub(); unsub = null; }
+  uid = user ? user.uid : null;
+  $("loginBox").classList.toggle("hidden", !!user);
+  $("appBox").classList.toggle("hidden", !user);
+  $("userBox").classList.toggle("hidden", !user);
+  if (!user) { notes = []; $("list").innerHTML = ""; return; }
+  $("userName").textContent = user.displayName || user.email || "";
+  unsub = onSnapshot(notesRef(), snap => {
+    notes = snap.docs.map(d => ({ id:d.id, ...d.data({ serverTimestamps:"estimate" }) }));
+    render();
+  }, () => showErr("노트를 불러오지 못했어요."));
+});
+</script>
+</body>
+</html>
