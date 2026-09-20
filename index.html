@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="경기 전 노트">
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
 <title>경기 전 노트</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -103,7 +105,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 // ▼▼▼ Firebase 콘솔 > 프로젝트 설정 > 웹 앱 설정값으로 교체 ▼▼▼
 const firebaseConfig = {
   apiKey: "AIzaSyCBqKlXLyc2qI1g-uscB4b1bW6NteicP-8",
-  authDomain: "tennis-9c2c5.firebaseapp.com",
+  authDomain: location.protocol === "https:" ? location.hostname : "tennis-9c2c5.firebaseapp.com", // vercel.json 프록시 사용
   projectId: "tennis-9c2c5",
   storageBucket: "tennis-9c2c5.firebasestorage.app",
   messagingSenderId: "432437408355",
@@ -203,10 +205,8 @@ $("loginBtn").addEventListener("click", async () => {
   provider.setCustomParameters({ prompt: "select_account" });
   const e = $("loginErr");
   e.classList.add("hidden");
-  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   const useRedirect = async () => { await signInWithRedirect(auth, provider); };
   try {
-    if (standalone) { await useRedirect(); return; }
     await signInWithPopup(auth, provider);
   } catch (err) {
     const code = err?.code || "";
