@@ -94,7 +94,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp }
@@ -200,10 +200,35 @@ $("list").addEventListener("click", async e => {
 
 $("loginBtn").addEventListener("click", async () => {
   const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  const e = $("loginErr");
+  e.classList.add("hidden");
   const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-  try { standalone ? await signInWithRedirect(auth, provider) : await signInWithPopup(auth, provider); }
-  catch (err) { const e = $("loginErr"); e.textContent = "로그인에 실패했어요. 다시 시도해 주세요."; e.classList.remove("hidden"); }
+  const useRedirect = async () => { await signInWithRedirect(auth, provider); };
+  try {
+    if (standalone) { await useRedirect(); return; }
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    const code = err?.code || "";
+    // 팝업이 막히거나 닫히면 리다이렉트로 재시도
+    if (["auth/popup-blocked","auth/popup-closed-by-user","auth/cancelled-popup-request","auth/operation-not-supported-in-this-environment"].includes(code)) {
+      try { await useRedirect(); return; } catch (e2) {
+        e.textContent = "로그인 실패: " + (e2?.code || e2?.message || "알 수 없는 오류");
+        e.classList.remove("hidden"); return;
+      }
+    }
+    e.textContent = "로그인 실패: " + (code || err?.message || "알 수 없는 오류");
+    e.classList.remove("hidden");
+  }
 });
+
+// 리다이렉트로 돌아왔을 때 결과 확인
+getRedirectResult(auth).catch(err => {
+  const e = $("loginErr");
+  e.textContent = "로그인 실패: " + (err?.code || err?.message || "알 수 없는 오류");
+  e.classList.remove("hidden");
+});
+
 $("logoutBtn").addEventListener("click", () => signOut(auth));
 
 onAuthStateChanged(auth, user => {
